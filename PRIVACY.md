@@ -2,20 +2,20 @@
 
 **Effective Date:** July 28, 2026
 
-This Privacy Policy describes how the "CP Sync" browser extension ("the Extension") handles your data. CP Sync is designed with strict privacy principles: **it does not collect, transmit, or store any of your personal data on external servers owned by the developer.**
+This Privacy Policy describes how the "CP Sync" browser extension ("the Extension") handles your data. CP Sync is designed with strict privacy principles: **CP Sync does not collect or transmit your data to servers operated by the developer. Data is processed locally in your browser and, when you use the synchronization feature, submitted directly to the GitHub API to create commits in your configured repository.**
 
 ### 1. Data We Collect and How It Is Used
 
 To function properly, the Extension requires certain information to be provided by you and accessed within your browser:
 
-*   **GitHub Personal Access Token & Account Details:** To push code to your repository, the Extension requires your GitHub username, repository name, and a GitHub Personal Access Token (PAT). This data is used exclusively to authenticate API requests directly to GitHub.
+*   **GitHub Personal Access Token & Account Details:** CP Sync stores the GitHub Personal Access Token provided by the user in Chrome extension storage and uses it solely to authenticate requests to the GitHub API. The token is not transmitted to servers operated by the CP Sync developer or used for any purpose other than the GitHub synchronization functionality.
 *   **Submission Data:** The Extension reads problem metadata (such as problem name, ID, and URL) and your submitted code from supported competitive programming websites (e.g., Codeforces, LeetCode, CodeChef, AtCoder, etc.) when you receive an "Accepted" verdict. This data is used solely to construct a commit and push it to your connected GitHub repository.
 
 ### 2. Data Storage
 
-All settings, including your GitHub Personal Access Token, repository details, and push history, are stored locally on your device using your browser's native storage API (`chrome.storage`). 
+Settings and extension data are stored using Chrome's extension storage API. The developer does not have access to this stored data.
 
-*   **No Developer Access:** The developer of CP Sync has no access to your token, your code, your local storage, or your push history.
+*   **Developer Access:** CP Sync does not send your GitHub token, submitted code, or push history to servers operated by the developer. The developer does not have access to this information through the Extension.
 *   **Data Export:** If you choose to use the "Export settings" feature, your Personal Access Token is deliberately excluded from the exported file to prevent accidental sharing or leaks.
 
 ### 3. Third-Party Services
@@ -38,6 +38,8 @@ The Extension requests the following browser permissions for these specific reas
 *   `host_permissions` (e.g., `*://*.codeforces.com/*`, `*://api.github.com/*`): To read your submission status on supported coding platforms and transmit the code directly to the GitHub API.
 *   `activeTab` / `scripting`: To support the "Autofill" feature in the Manual Push tab, allowing the Extension to securely read problem metadata from the currently active tab.
 *   `notifications`: To provide brief, non-intrusive status alerts when a background code push succeeds or fails.
+
+**Chrome Web Store Limited Use Disclosure:** CP Sync's use of information obtained through browser permissions is limited to providing and improving the Extension's single purpose. User data is not sold, used for advertising, or transferred to third parties except where necessary to provide the Extension's functionality, such as sending the user's selected submission to the GitHub API at the user's direction.
 
 ### 6. Changes to This Policy
 
