@@ -9,8 +9,6 @@
 //      resubmitting the same accepted solution doesn't spam your repo.
 //   4. Keep a local history log + solve stats/streak, and expose them to
 //      the popup.
-// You are free to copy this code, provided you are also willing 
-// to take responsibility for all the bugs I left in it. Good luck (Y GAY).
 //
 
 const DEFAULT_COMMIT_TEMPLATE = "Solved: {problem} ({platform})";
@@ -84,14 +82,12 @@ function todayKey(d = new Date()) {
 
 // ----------
 // Settings
-// You are free to copy this code, provided you are also willing 
-// to take responsibility for all the bugs I left in it. Good luck (Y GAY).
 // ---------------------------------------------------------------------------
 
 const SETTINGS_DEFAULTS = {
   githubToken: "",
-  githubOwner: "",
-  githubRepo: "",
+  githubOwner: "Buddhadeb-ss",
+  githubRepo: "coding-practice",
   githubBranch: "main",
   commitMessageTemplate: DEFAULT_COMMIT_TEMPLATE,
   skipDuplicateCode: true,
@@ -126,6 +122,8 @@ const HISTORY_KEY = "cpsync_history";
 const STATS_KEY = "cpsync_stats";
 const DEDUPE_KEY = "cpsync_dedupe";
 const FAILED_QUEUE_KEY = "cpsync_failed_queue";
+const PENDING_KEY = "cpsync_pending_items";
+const CANCELED_KEY = "cpsync_canceled_items";
 const MAX_HISTORY = 200;
 
 async function getLocal(key, fallback) {
@@ -135,6 +133,28 @@ async function getLocal(key, fallback) {
 
 async function setLocal(key, value) {
   await chrome.storage.local.set({ [key]: value });
+}
+
+async function getPendingMap() {
+  return getLocal(PENDING_KEY, {});
+}
+
+async function setPendingMap(map) {
+  await setLocal(PENDING_KEY, map);
+}
+
+async function getCanceledList() {
+  return getLocal(CANCELED_KEY, []);
+}
+
+async function addCanceled(identifier) {
+  if (!identifier) return;
+  const list = await getCanceledList();
+  if (!list.includes(identifier)) {
+    list.push(identifier);
+    if (list.length > 500) list.shift();
+    await setLocal(CANCELED_KEY, list);
+  }
 }
 
 async function addHistoryEntry(entry) {
@@ -168,6 +188,13 @@ function computeStreak(solvedDates) {
 }
 
 async function updateBadge(statsMaybe) {
+  const pendingMap = await getPendingMap();
+  const pendingCount = Object.keys(pendingMap).length;
+  if (pendingCount > 0) {
+    chrome.action.setBadgeText({ text: String(pendingCount) });
+    chrome.action.setBadgeBackgroundColor({ color: "#d97706" });
+    return;
+  }
   const stats = statsMaybe || (await getLocal(STATS_KEY, { totalByPlatform: {}, solvedDates: [] }));
   const streak = computeStreak(stats.solvedDates || []);
   chrome.action.setBadgeText({ text: streak > 0 ? String(streak) : "" });
@@ -218,7 +245,36 @@ function buildPath(payload) {
   } else if (platform === "leetcode") {
     groupFolder = sanitize(payload.rating || "Unrated");
   } else if (platform === "codechef") {
-    groupFolder = sanitize(payload.contest || payload.rating || "Practice");
+    const langFolderMap = {
+      "c": "C",
+      "cpp": "Cpp",
+      "py": "Python",
+      "java": "Java",
+      "js": "JavaScript",
+      "ts": "TypeScript",
+      "go": "Go",
+      "rs": "Rust",
+      "cs": "CSharp",
+      "kt": "Kotlin",
+      "rb": "Ruby",
+      "php": "PHP",
+      "hs": "Haskell",
+      "scala": "Scala",
+      "swift": "Swift"
+    };
+    const langFolder = langFolderMap[ext] || (payload.language ? sanitize(payload.language) : "Other");
+    const probId = sanitize(payload.problemId || "");
+    const probName = sanitize(payload.problemName || "");
+    let baseFileName = probId || probName || "solution";
+    if (probId && probName && probName.toLowerCase() !== probId.toLowerCase()) {
+      if (probName.toLowerCase().startsWith(probId.toLowerCase())) {
+        baseFileName = probName;
+      } else {
+        baseFileName = `${probId} - ${probName}`;
+      }
+    }
+    const fileName = `${baseFileName}.${ext}`;
+    return `CodeChef/${langFolder}/${fileName}`;
   } else if (platform === "atcoder") {
     groupFolder = sanitize(payload.contest || "Contests");
   } else if (platform === "hackerrank") {
@@ -243,15 +299,23 @@ function buildCommitMessage(template, payload) {
 }
 
 function buildFileHeader(payload) {
+  const ext = guessExtension(payload.language) || guessExtensionFromCode(payload.code);
+  const isHashComment = ["py", "rb", "sh", "bash", "pl", "r"].includes(ext);
+  const isDashComment = ["sql", "lua", "hs"].includes(ext);
+  const pfx = isHashComment ? "# " : (isDashComment ? "-- " : "// ");
+
   const lines = [
-    `// Problem: ${payload.problemName || ""}`,
-    `// Platform: ${payload.platform}`,
-    payload.contest ? `// Contest: ${payload.contest}` : null,
-    payload.rating ? `// Rating/Difficulty: ${payload.rating}` : null,
-    `// Language: ${payload.language || "unknown"}`,
-    payload.verdict ? `// Verdict: ${payload.verdict}` : null,
-    `// URL: ${payload.url || ""}`,
-    `// Solved on: ${new Date().toISOString()}`,
+    `${pfx}Problem: ${payload.problemName || payload.problemId || ""}`,
+    payload.problemId ? `${pfx}Problem Code: ${payload.problemId}` : null,
+    `${pfx}Platform: CodeChef`,
+    payload.contest ? `${pfx}Contest: ${payload.contest}` : null,
+    payload.rating ? `${pfx}Difficulty / Rating: ${payload.rating}` : null,
+    `${pfx}Language: ${payload.language || ext || "unknown"}`,
+    payload.verdict ? `${pfx}Verdict: ${payload.verdict}` : null,
+    payload.url ? `${pfx}Problem URL: ${payload.url}` : null,
+    payload.submissionId ? `${pfx}Submission ID: ${payload.submissionId}` : null,
+    payload.submissionUrl ? `${pfx}Submission URL: ${payload.submissionUrl}` : null,
+    `${pfx}Solved on: ${new Date().toISOString()}`,
     "",
     ""
   ].filter((l) => l !== null);
@@ -313,7 +377,7 @@ async function githubRequest(url, options, attempt = 1) {
   return resp;
 }
 
-async function pushToGithub(payload, { isRetry = false } = {}) {
+async function pushToGithub(payload, { isRetry = false, sha: explicitSha = null } = {}) {
   const settings = await getSettings();
   const { githubToken, githubOwner, githubRepo, githubBranch, commitMessageTemplate, skipDuplicateCode } = settings;
 
@@ -334,13 +398,13 @@ async function pushToGithub(payload, { isRetry = false } = {}) {
     return { ok: false, error: "other_judges_disabled", skipped: true };
   }
 
-  const path = buildPath(payload);
+  const path = payload.proposedPath || buildPath(payload);
   const content = buildFileHeader(payload) + (payload.code || "// (no source captured)");
-  const contentHash = await sha256Hex(content);
+  const codeHash = await sha256Hex(payload.code || "");
 
   if (skipDuplicateCode) {
     const dedupeMap = await getLocal(DEDUPE_KEY, {});
-    if (dedupeMap[path] === contentHash) {
+    if (dedupeMap[path] === codeHash) {
       await addHistoryEntry({ platform: payload.platform, problemName: payload.problemName, path, status: "skipped", detail: "identical code already pushed" });
       return { ok: true, skipped: true, path };
     }
@@ -355,11 +419,13 @@ async function pushToGithub(payload, { isRetry = false } = {}) {
   };
 
   try {
-    let sha;
-    const getResp = await githubRequest(`${apiBase}?ref=${encodeURIComponent(githubBranch)}`, { headers });
-    if (getResp.status === 200) {
-      const existing = await getResp.json();
-      sha = existing.sha;
+    let sha = explicitSha;
+    if (!sha) {
+      const getResp = await githubRequest(`${apiBase}?ref=${encodeURIComponent(githubBranch)}`, { headers });
+      if (getResp.status === 200) {
+        const existing = await getResp.json();
+        sha = existing.sha;
+      }
     }
 
     const body = {
@@ -377,7 +443,7 @@ async function pushToGithub(payload, { isRetry = false } = {}) {
 
     if (putResp.status === 200 || putResp.status === 201) {
       const dedupeMap = await getLocal(DEDUPE_KEY, {});
-      dedupeMap[path] = contentHash;
+      dedupeMap[path] = codeHash;
       await setLocal(DEDUPE_KEY, dedupeMap);
 
       await addHistoryEntry({ platform: payload.platform, problemName: payload.problemName, path, status: "success", url: payload.url });
@@ -398,11 +464,183 @@ async function pushToGithub(payload, { isRetry = false } = {}) {
   }
 }
 
+async function registerPendingItem(payload, sender) {
+  if (!payload || (payload.verdict || "").toLowerCase() !== "accepted") {
+    return { ok: false, error: "Verdict is not Accepted" };
+  }
+  if (!payload.code || typeof payload.code !== "string" || !payload.code.trim()) {
+    return { ok: false, error: "Source code was not captured" };
+  }
+
+  const settings = await getSettings();
+  if (settings.extensionEnabled === false) {
+    return { ok: false, error: "extension_disabled", skipped: true };
+  }
+
+  const isKnownPlatform = KNOWN_PLATFORMS.includes((payload.platform || "").toLowerCase());
+  if (isKnownPlatform && settings.platformsEnabled && settings.platformsEnabled[payload.platform] === false) {
+    return { ok: false, error: "platform_disabled", skipped: true };
+  }
+  if (!isKnownPlatform && settings.otherJudgesEnabled === false) {
+    return { ok: false, error: "other_judges_disabled", skipped: true };
+  }
+
+  const path = buildPath(payload);
+  const codeHash = await sha256Hex(payload.code || "");
+
+  // Check canceled list
+  const canceledList = await getCanceledList();
+  const subKey = payload.submissionId ? "sub_" + payload.submissionId : "hash_" + codeHash;
+  if (canceledList.includes(subKey)) {
+    return { ok: false, skipped: true, error: "This submission was previously canceled by user." };
+  }
+
+  // Check if identical code was already pushed
+  if (settings.skipDuplicateCode) {
+    const dedupeMap = await getLocal(DEDUPE_KEY, {});
+    if (dedupeMap[path] === codeHash) {
+      return { ok: false, skipped: true, error: "This exact code is already pushed to GitHub." };
+    }
+  }
+
+  // Check if identical item is already pending
+  const pendingMap = await getPendingMap();
+  for (const id of Object.keys(pendingMap)) {
+    const item = pendingMap[id];
+    if (item.proposedPath === path && item.code === payload.code) {
+      return { ok: true, pendingItem: item, existing: true };
+    }
+  }
+
+  const pendingId = "pend_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7);
+  const pendingItem = {
+    id: pendingId,
+    platform: payload.platform || "codechef",
+    problemName: payload.problemName || payload.problemId || "problem",
+    problemId: payload.problemId || "problem",
+    language: payload.language || "unknown",
+    code: payload.code,
+    url: payload.url || "",
+    submissionId: payload.submissionId || null,
+    submissionUrl: payload.submissionUrl || null,
+    verdict: "Accepted",
+    targetOwner: settings.githubOwner || "Buddhadeb-ss",
+    targetRepo: settings.githubRepo || "coding-practice",
+    targetBranch: settings.githubBranch || "main",
+    proposedPath: path,
+    createdAt: Date.now(),
+    status: "pending_confirmation"
+  };
+
+  pendingMap[pendingId] = pendingItem;
+  await setPendingMap(pendingMap);
+  await updateBadge();
+
+  notify("CP Sync: Solution Accepted", `${pendingItem.problemName} is ready to push. Review and confirm.`);
+  return { ok: true, pendingItem };
+}
+
+async function confirmAndPush(pendingId, overwrite = false) {
+  const pendingMap = await getPendingMap();
+  const pendingItem = pendingMap[pendingId];
+  if (!pendingItem || pendingItem.status !== "pending_confirmation") {
+    return { ok: false, error: "Pending item not found or already processed." };
+  }
+
+  const settings = await getSettings();
+  const { githubToken, githubOwner, githubRepo, githubBranch } = settings;
+  const path = pendingItem.proposedPath;
+  const apiBase = `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${path}`;
+  const headers = {
+    Authorization: `Bearer ${githubToken}`,
+    Accept: "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28"
+  };
+
+  try {
+    let sha = null;
+    const getResp = await githubRequest(`${apiBase}?ref=${encodeURIComponent(githubBranch)}`, { headers });
+    if (getResp.status === 200) {
+      const existing = await getResp.json();
+      sha = existing.sha;
+      if (!overwrite) {
+        // Decode existing content and check if different
+        let existingContent = "";
+        try {
+          const binary = atob((existing.content || "").replace(/\s/g, ""));
+          const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+          existingContent = new TextDecoder().decode(bytes);
+        } catch (e) {
+          existingContent = "";
+        }
+        const proposedContent = buildFileHeader(pendingItem) + pendingItem.code;
+        if (existingContent.trim() !== proposedContent.trim()) {
+          return {
+            ok: false,
+            conflict: true,
+            pendingId: pendingId,
+            path: path,
+            existingSha: sha,
+            message: `A file already exists at ${path} on GitHub with different content.`
+          };
+        }
+      }
+    }
+
+    const pushResult = await pushToGithub(pendingItem, { sha: sha });
+    if (pushResult && pushResult.ok) {
+      delete pendingMap[pendingId];
+      await setPendingMap(pendingMap);
+      await updateBadge();
+      return { ok: true, path: path };
+    } else {
+      return { ok: false, error: pushResult ? pushResult.error : "Unknown push error" };
+    }
+  } catch (err) {
+    console.error("[CP Sync] Confirm push failed:", err);
+    return { ok: false, error: String(err.message || err) };
+  }
+}
+
+async function cancelPendingItem(pendingId) {
+  const pendingMap = await getPendingMap();
+  const pendingItem = pendingMap[pendingId];
+  if (pendingItem) {
+    if (pendingItem.submissionId) {
+      await addCanceled("sub_" + pendingItem.submissionId);
+    }
+    const codeHash = await sha256Hex(pendingItem.code || "");
+    await addCanceled("hash_" + codeHash);
+    delete pendingMap[pendingId];
+    await setPendingMap(pendingMap);
+
+    // Also purge from failedQueue if present
+    const queue = await getFailedQueue();
+    const filteredQueue = queue.filter((item) => {
+      if (pendingItem.submissionId && item.payload && item.payload.submissionId === pendingItem.submissionId) return false;
+      if (item.payload && item.payload.code === pendingItem.code) return false;
+      return true;
+    });
+    if (filteredQueue.length !== queue.length) {
+      await setLocal(FAILED_QUEUE_KEY, filteredQueue);
+    }
+
+    await updateBadge();
+  }
+  return { ok: true };
+}
+
 async function retryFailedQueue() {
   const queue = await getFailedQueue();
+  const canceledList = await getCanceledList();
   const results = [];
   const remaining = [];
   for (const item of queue) {
+    const codeHash = await sha256Hex((item.payload && item.payload.code) || "");
+    const subKey = (item.payload && item.payload.submissionId) ? "sub_" + item.payload.submissionId : "hash_" + codeHash;
+    if (canceledList.includes(subKey)) {
+      continue; // Never retry a canceled item
+    }
     const result = await pushToGithub(item.payload, { isRetry: true });
     results.push(result);
     if (!result.ok && !result.skipped) remaining.push(item);
@@ -430,12 +668,29 @@ async function testConnection() {
     return { ok: false, error: String(e) };
   }
 }
+
 // Message router
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || !message.type) return;
 
   switch (message.type) {
     case "CP_SYNC_SOLVED":
+    case "CP_SYNC_REGISTER_PENDING":
+      registerPendingItem(message.payload, sender).then(sendResponse);
+      return true;
+
+    case "CP_SYNC_CONFIRM_PUSH":
+      confirmAndPush(message.pendingId, message.overwrite).then(sendResponse);
+      return true;
+
+    case "CP_SYNC_CANCEL_PENDING":
+      cancelPendingItem(message.pendingId).then(sendResponse);
+      return true;
+
+    case "CP_SYNC_GET_PENDING_ITEMS":
+      getPendingMap().then((map) => sendResponse({ ok: true, items: Object.values(map) }));
+      return true;
+
     case "CP_SYNC_MANUAL_PUSH":
       pushToGithub(message.payload).then(sendResponse);
       return true;

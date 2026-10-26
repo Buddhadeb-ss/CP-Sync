@@ -1,6 +1,4 @@
 // content_scripts/atcoder.js
-// You are free to copy this code, provided you are also willing 
-// to take responsibility for all the bugs I left in it. Good luck (Y GAY).
 
 (function () {
   console.log("[CP Sync] v" + chrome.runtime.getManifest().version + " watching AtCoder submissions on this page:", location.pathname);

@@ -1,10 +1,8 @@
-// You are free to copy this code, provided you are also willing 
-// to take responsibility for all the bugs I left in it. Good luck (Y GAY).
 
 const SETTINGS_DEFAULTS = {
   githubToken: "",
-  githubOwner: "",
-  githubRepo: "",
+  githubOwner: "Buddhadeb-ss",
+  githubRepo: "coding-practice",
   githubBranch: "main",
   commitMessageTemplate: "Solved: {problem} ({platform})",
   skipDuplicateCode: true,
@@ -40,6 +38,7 @@ function activateTab(tabName) {
   if (!btn) return;
   btn.classList.add("active");
   $("tab-" + tabName).classList.add("active");
+  if (tabName === "pending") loadPendingItems();
   if (tabName === "history") loadHistory();
 }
 
@@ -480,14 +479,160 @@ function refreshStats() {
     const total = Object.values(res.stats.totalByPlatform || {}).reduce((a, b) => a + b, 0);
     $("totalValue").textContent = total;
   });
-  chrome.runtime.sendMessage({ type: "CP_SYNC_GET_FAILED_QUEUE" }, (res) => {
-    if (!res || !res.ok) return;
-    $("failedValue").textContent = res.queue.length;
+  chrome.runtime.sendMessage({ type: "CP_SYNC_GET_PENDING_ITEMS" }, (res) => {
+    const count = (res && res.items && res.items.length) || 0;
+    if ($("pendingValue")) $("pendingValue").textContent = count;
+    const badge = $("pendingBadge");
+    if (badge) {
+      if (count > 0) {
+        badge.textContent = count;
+        badge.style.display = "inline";
+      } else {
+        badge.style.display = "none";
+      }
+    }
   });
 }
 
-// You are free to copy this code, provided you are also willing 
-// to take responsibility for all the bugs I left in it. Good luck (Y GAY).
+// ---------------------------------------------------------------------
+// Pending Confirmations tab
+// ---------------------------------------------------------------------
+function loadPendingItems() {
+  chrome.runtime.sendMessage({ type: "CP_SYNC_GET_PENDING_ITEMS" }, (res) => {
+    const list = $("pendingList");
+    if (!list) return;
+    const items = (res && res.items) || [];
+    if (!items.length) {
+      list.innerHTML = '<p class="hint">No pending submissions awaiting confirmation.</p>';
+      return;
+    }
+
+    list.innerHTML = items
+      .map(
+        (item) => `
+      <div class="pending-card" id="card-${item.id}">
+        <div class="pending-card-header">
+          <span class="pending-card-title">${escapeHtml(item.problemName || item.problemId)}</span>
+          <span class="pending-card-badge">ACCEPTED</span>
+        </div>
+
+        <div class="pending-grid">
+          <div class="pending-grid-item">
+            <span class="pending-grid-label">Problem Code</span>
+            <span class="pending-grid-val">${escapeHtml(item.problemId || "N/A")}</span>
+          </div>
+          <div class="pending-grid-item">
+            <span class="pending-grid-label">Language</span>
+            <span class="pending-grid-val">${escapeHtml(item.language || "unknown")}</span>
+          </div>
+          <div class="pending-grid-item">
+            <span class="pending-grid-label">Target Repo</span>
+            <span class="pending-grid-val">${escapeHtml(item.targetOwner || "Buddhadeb-ss")}/${escapeHtml(item.targetRepo || "coding-practice")}</span>
+          </div>
+          <div class="pending-grid-item">
+            <span class="pending-grid-label">Branch</span>
+            <span class="pending-grid-val">${escapeHtml(item.targetBranch || "main")}</span>
+          </div>
+          <div class="pending-grid-item full">
+            <span class="pending-grid-label">Proposed File Path</span>
+            <span class="pending-grid-val mono">${escapeHtml(item.proposedPath || "")}</span>
+          </div>
+          ${item.submissionId ? `
+          <div class="pending-grid-item full">
+            <span class="pending-grid-label">Submission ID</span>
+            <span class="pending-grid-val mono">${escapeHtml(item.submissionId)}</span>
+          </div>` : ""}
+        </div>
+
+        <div>
+          <label style="margin-top:0; margin-bottom:4px">Captured Source Code (${(item.code || "").length} chars)</label>
+          <pre class="pending-code-preview"><code>${escapeHtml(item.code || "")}</code></pre>
+        </div>
+
+        <div class="pending-status-msg" id="msg-${item.id}"></div>
+
+        <div class="pending-card-actions">
+          <button class="secondary pending-cancel-btn" data-id="${item.id}">Cancel</button>
+          <button class="pending-push-btn" data-id="${item.id}">Push to GitHub</button>
+        </div>
+      </div>`
+      )
+      .join("");
+
+    // Wire action buttons
+    items.forEach((item) => {
+      const card = $(`card-${item.id}`);
+      if (!card) return;
+      const cancelBtn = card.querySelector(".pending-cancel-btn");
+      const pushBtn = card.querySelector(".pending-push-btn");
+      const statusMsg = $(`msg-${item.id}`);
+      let isConflictState = false;
+
+      cancelBtn.addEventListener("click", () => {
+        cancelBtn.disabled = true;
+        pushBtn.disabled = true;
+        chrome.runtime.sendMessage({ type: "CP_SYNC_CANCEL_PENDING", pendingId: item.id }, () => {
+          loadPendingItems();
+          refreshStats();
+        });
+      });
+
+      pushBtn.addEventListener("click", () => {
+        pushBtn.disabled = true;
+        cancelBtn.disabled = true;
+        statusMsg.className = "pending-status-msg";
+        statusMsg.textContent = isConflictState ? "Overwriting on GitHub..." : "Pushing to GitHub...";
+        statusMsg.style.display = "block";
+
+        chrome.runtime.sendMessage(
+          { type: "CP_SYNC_CONFIRM_PUSH", pendingId: item.id, overwrite: isConflictState },
+          (res) => {
+            if (chrome.runtime.lastError) {
+              statusMsg.className = "pending-status-msg error";
+              statusMsg.textContent = "Error: " + chrome.runtime.lastError.message;
+              pushBtn.disabled = false;
+              cancelBtn.disabled = false;
+              return;
+            }
+
+            if (res && res.conflict) {
+              isConflictState = true;
+              statusMsg.className = "pending-status-msg conflict";
+              statusMsg.textContent = "⚠️ " + res.message;
+              pushBtn.disabled = false;
+              cancelBtn.disabled = false;
+              pushBtn.textContent = "Confirm Overwrite";
+              pushBtn.style.backgroundColor = "#d97706";
+              return;
+            }
+
+            if (res && res.ok) {
+              statusMsg.className = "pending-status-msg success";
+              statusMsg.textContent = `✓ Successfully pushed to ${res.path}!`;
+              setTimeout(() => {
+                loadPendingItems();
+                refreshStats();
+              }, 1200);
+            } else {
+              statusMsg.className = "pending-status-msg error";
+              statusMsg.textContent = `✗ Push failed: ${res ? res.error : "Unknown error"}`;
+              pushBtn.disabled = false;
+              cancelBtn.disabled = false;
+            }
+          }
+        );
+      });
+    });
+  });
+}
+
+if ($("pendingStatBox")) {
+  $("pendingStatBox").addEventListener("click", () => {
+    activateTab("pending");
+    chrome.storage.local.set({ cpsync_active_tab: "pending" });
+  });
+}
+
 loadGeneral();
 loadAdvanced();
 refreshStats();

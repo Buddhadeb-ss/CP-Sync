@@ -171,3 +171,110 @@ hr { border: none; border-top: 1px solid #21262d; margin: 16px 0; }
 
 footer { margin-top: 16px; font-size: 11px; color: #6e7681; border-top: 1px solid #21262d; padding-top: 10px; }
 footer code { background: #161b22; padding: 1px 4px; border-radius: 4px; }
+
+/* Pending confirmations tab */
+.tab-badge {
+  background: #d97706;
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 10px;
+  margin-left: 4px;
+}
+
+.stat-value.pending-stat { color: #f59e0b; }
+
+.pending-list { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; max-height: 440px; overflow-y: auto; }
+.pending-card {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pending-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.pending-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #e6edf3;
+}
+.pending-card-badge {
+  background: #238636;
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+.pending-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 10px;
+  font-size: 11px;
+  background: #0d1117;
+  border: 1px solid #21262d;
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+.pending-grid-item { display: flex; flex-direction: column; gap: 2px; }
+.pending-grid-item.full { grid-column: 1 / -1; }
+.pending-grid-label { color: #8b949e; font-size: 10px; text-transform: uppercase; font-weight: 600; }
+.pending-grid-val { color: #c9d1d9; word-break: break-all; }
+.pending-grid-val.mono { font-family: ui-monospace, monospace; color: #58a6ff; font-size: 11px; }
+.pending-code-preview {
+  margin: 0;
+  padding: 8px 10px;
+  background: #090d13;
+  border: 1px solid #21262d;
+  border-radius: 5px;
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  color: #c9d1d9;
+  max-height: 120px;
+  overflow-y: auto;
+  white-space: pre;
+}
+.pending-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+}
+.pending-card-actions button {
+  padding: 7px 12px;
+  font-size: 12px;
+}
+.pending-status-msg {
+  font-size: 11px;
+  min-height: 14px;
+  display: none;
+  padding: 6px 8px;
+  border-radius: 4px;
+}
+.pending-status-msg.error {
+  display: block;
+  background: rgba(248, 81, 73, 0.15);
+  color: #f85149;
+  border: 1px solid rgba(248, 81, 73, 0.4);
+}
+.pending-status-msg.conflict {
+  display: block;
+  background: rgba(217, 119, 6, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(217, 119, 6, 0.4);
+}
+.pending-status-msg.success {
+  display: block;
+  background: rgba(35, 134, 54, 0.15);
+  color: #3fb950;
+  border: 1px solid rgba(35, 134, 54, 0.4);
+}
+

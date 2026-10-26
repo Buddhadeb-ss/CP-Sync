@@ -1,7 +1,5 @@
 // content_scripts/codeforces.js
 //
-// You are free to copy this code, provided you are also willing 
-// to take responsibility for all the bugs I left in it. Good luck (Y GAY).
 //
 // IMPORTANT SAFETY LOGIC (read this before touching detection code):
 // Status/problem pages on Codeforces can list submissions from OTHER users,
@@ -181,8 +179,6 @@
     const myHandle = getMyHandle();
     document.querySelectorAll("table.status-frame-datatable tr").forEach((row) => handleRow(row, myHandle));
   }
-// You are free to copy this code, provided you are also willing 
-// to take responsibility for all the bugs I left in it. Good luck (Y GAY).
   setInterval(scan, CHECK_INTERVAL_MS);
   scan();
 })();
