@@ -174,7 +174,7 @@
     const code = res ? (typeof res === "string" ? res : res.code) : null;
     const language = res && typeof res === "object" ? res.language : null;
     console.log(
-      "[CP Sync] v2.1.0 editor_hook diagnostic on", location.href, "-",
+      "[CP Sync] v2.2.0 editor_hook diagnostic on", location.href, "-",
       "Monaco global:", snap.hasMonacoGlobal, "editors:", snap.monacoEditorsCount, "models:", snap.monacoModelsCount,
       "- CodeMirror nodes:", snap.codeMirrorNodeCount, "- Ace nodes:", snap.aceNodeCount, "- textareas:", snap.textareaCount,
       "- captured code length:", code ? code.length : 0,

@@ -1,29 +1,36 @@
-# CP Sync v2.1.0
+# CP Sync v2.2.0
 
-[![Version](https://img.shields.io/badge/version-2.1.0-brightgreen.svg)](https://github.com/Buddhadeb-ss/CP-Sync)
+[![Version](https://img.shields.io/badge/version-2.2.0-brightgreen.svg)](https://github.com/Buddhadeb-ss/CP-Sync)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Manifest V3](https://img.shields.io/badge/Manifest-V3-blue.svg)](https://developer.chrome.com/docs/extensions/mv3/intro/)
 
-**CP Sync** is a modern Chromium browser extension (Microsoft Edge, Google Chrome, Brave) that watches competitive programming platforms for **Accepted** solutions and commits your code directly to your GitHub repository with **zero false positives** and **explicit user confirmation**.
+**CP Sync** is a modern Chromium browser extension (Microsoft Edge, Google Chrome, Brave) that watches competitive programming platforms for **Accepted** solutions — or scans an open accepted problem on demand — and commits your code directly to your GitHub repository with **zero false positives**, **accurate C vs. C++ detection**, and **explicit user confirmation**.
 
 ---
 
-## What Makes CP Sync v2.1.0 Better?
+## What Makes CP Sync v2.2.0 Better?
 
 Previous versions of competitive programming sync extensions suffered from aggressive interval scraping: opening an old submission, refreshing a problem tab, or simply viewing a problem statement would accidentally trigger automatic git commits of whatever text was in the editor.
 
-**CP Sync v2.1.0** completely re-engineers the sync lifecycle with production-grade safety:
+**CP Sync v2.2.0** pairs zero-false-positive event-driven detection with a fast one-shot active-tab scanner and polished confirmation UX:
 
-| Feature | Legacy CP Sync | **CP Sync v2.1.0** |
+| Feature | Legacy CP Sync | **CP Sync v2.2.0** |
 |---|---|---|
-| **Trigger Mechanism** | Unconditional 1.2s polling loop | **Strict Event-Driven State Machine** (submit button click, Ctrl+Enter, or API submit) |
-| **False Positive Prevention** | None (opening tabs pushes code) | **Zero False Positives** (opening tabs or viewing past solutions never pushes) |
-| **User Confirmation** | Auto-pushed without permission | **Explicit Confirmation Modal** with code preview before any GitHub write |
-| **Popup Review** | No pending view | **Dedicated "Pending" Tab & Amber Badge** in extension popup |
-| **Conflict Safety** | Silent file overwrite | **GitHub Conflict Detection** (warns if file exists with different content) |
+| **Trigger Mechanism** | Unconditional 1.2s polling loop | **Strict Event-Driven State Machine** + **One-Shot Active Tab Scan** |
+| **False Positive Prevention** | None (opening tabs pushes code) | **Zero False Positives** (opening tabs never pushes unless you explicitly click Scan) |
+| **User Confirmation** | Auto-pushed without permission | **Explicit Confirmation Card** with code preview & inline language switcher |
+| **Language Accuracy** | Generic editor mode (`cpp` for C) | **C vs. C++ Disambiguation** (`API > DOM selector > code markers > editor`) |
+| **Popup Review** | No pending view | **Dedicated Pending Tab, Amber Badge & Direct GitHub Links** |
+| **Conflict Safety** | Silent file overwrite | **GitHub Conflict Detection** & explicit **Push Again** override |
 | **Persistence** | Wiped on reload | **Session-Backed** (survives page redirects, reloads, and multi-frame IDEs) |
-| **Detection Reliability** | Brittle CSS class matching | **Dual-Channel** (Main-world network hook + deep DOM traversal) |
-| **Cancellation Protection** | None | **Cancellation Blacklist** (canceled items are never retried or re-prompted) |
+| **Detection Reliability** | Brittle CSS class matching | **Dual-Channel** (Main-world all-frames scan + DOM & judge APIs) |
+| **Cancellation Protection** | None | **Cancellation Blacklist** (canceled auto-items are never re-prompted) |
+
+### What's New in v2.2.0
+- **One-Shot Scan Page & Push**: Open any accepted problem or submission tab, click **Scan Page & Push** (or **Scan Tab** in Pending), and CP Sync scans all frames in the page's main world once to extract title, ID, difficulty/contest, language, submission ID, and source code straight into a confirmation card.
+- **Accurate C vs. C++ Detection**: Uses a prioritized pipeline (`platform API > submission table > anchored DOM language selector > C/C++ header & keyword disambiguation > editor model`) plus boundary-safe `.c` extension mapping so C solutions are never misfiled under `Cpp/`.
+- **Upgraded Confirmation & Popup UX**: Inline language dropdown on the Pending card (updates target file path live), expandable code preview, persistent **View on GitHub** links after pushing & in History, live active-tab target chip, token visibility toggle, and smart default tab routing.
+- **Clean Extension Folder (`cp-sync/`)**: Renamed from `CP Sync 2.0.0` to `cp-sync` to eliminate spaces and stale version numbers in unpacked paths.
 
 ---
 
@@ -38,7 +45,7 @@ Previous versions of competitive programming sync extensions suffered from aggre
 | **HackerRank** | `hackerrank.com` | Practice & Contests |
 | **AtCoder** | `atcoder.jp` | Contests & ABC/ARC/AGC tasks |
 | **vJudge** | `vjudge.net` | Virtual Judge problem sets |
-| **Custom / Other Judges** | Any judge site | Full **Manual Push** with one-click **Autofill** from current tab |
+| **Custom / Other Judges** | Any judge site | **Scan Page & Push** (active-tab scraping) & editable Manual Push |
 
 ---
 
@@ -107,7 +114,7 @@ int main() {
    - Google Chrome: `chrome://extensions`
    - Brave: `brave://extensions`
 3. Enable **Developer mode** (toggle in the sidebar or top-right corner).
-4. Click **Load unpacked** and select the `CP Sync 2.0.0` folder.
+4. Click **Load unpacked** and select the `cp-sync` folder.
 5. Pin the **CP Sync** icon to your toolbar for easy access.
 
 ---
@@ -126,8 +133,8 @@ int main() {
 ### 3. Configure CP Sync
 
 1. Click the CP Sync extension icon in your browser toolbar.
-2. In the **General** tab:
-   - **GitHub Personal Access Token**: Paste your token.
+2. In the **Settings** tab (shown automatically until configured):
+   - **GitHub Personal Access Token**: Paste your token (use **Show/Hide** to verify if needed).
    - **GitHub Username / Org**: Your username (e.g. `Buddhadeb-ss`).
    - **Repository**: Your target repository name (e.g. `coding-practice`).
    - **Branch**: Target branch (default is `main`).
@@ -168,12 +175,13 @@ int main() {
 
 ---
 
-## Manual Push & Autofill
+## One-Shot Scan & Manual Push
 
-If you ever solve a problem on an unlisted judge, or auto-detection was missed:
-1. Open the CP Sync popup and switch to **Manual Push**.
-2. Click **Autofill** — CP Sync inspects the active browser tab to pull the problem title, code, platform, and rating automatically.
-3. Paste your code and click **Push to GitHub**.
+If you have an accepted problem or past submission open in front of you (or auto-detection missed it):
+1. Open the CP Sync popup — the **Scan & Push** tab displays a live chip confirming the detected browser tab.
+2. Click **Scan Page & Push** (or **Scan Tab** in **Pending**). CP Sync scans the active tab once across all editor frames (`MAIN` world) and judge APIs to scrape the problem title, ID, rating/contest, language, submission ID, and source code.
+3. Review the **Pending** confirmation card: adjust the language inline if needed (updates the file path live), expand the code preview, and click **Push to GitHub** (or **Push Again** if identical code was pushed before).
+4. Need to customize metadata or push when no code is on the page? Click **Edit** on the confirmation card or **Fill Fields Only** in **Scan & Push** to populate the editable form.
 
 ---
 

@@ -1630,7 +1630,7 @@ $("importFile").addEventListener("change", async (e) => {
     const settings = JSON.parse(text);
     chrome.runtime.sendMessage({ type: "CP_SYNC_IMPORT_SETTINGS", settings }, (res) => {
       if (res && res.ok) {
-        setStatus($("importExportStatus"), "Imported. Re-enter your token in the General tab.", "ok");
+        setStatus($("importExportStatus"), "Imported. Re-enter your token in the Settings tab.", "ok");
         loadGeneral();
         loadAdvanced();
       } else {

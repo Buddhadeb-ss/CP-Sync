@@ -3,7 +3,7 @@
 {
   "manifest_version": 3,
   "name": "CP Sync",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Sync your Accepted submissions from online judges (Codeforces, CodeChef, LeetCode, etc.) to GitHub with confirmation gating and zero false positives.",
   "icons": {
     "16": "icons/icon16.png",

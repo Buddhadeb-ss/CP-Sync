@@ -604,7 +604,7 @@ async function confirmAndPush(pendingId, overwrite = false, force = false) {
   const settings = await getSettings();
   const { githubToken, githubOwner, githubRepo, githubBranch } = settings;
   if (!githubToken || !githubOwner || !githubRepo) {
-    return { ok: false, error: "GitHub token, owner, or repo is not configured in General settings." };
+    return { ok: false, error: "GitHub token, owner, or repo is not configured in the Settings tab." };
   }
 
   const path = pendingItem.proposedPath;

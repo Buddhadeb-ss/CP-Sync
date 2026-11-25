@@ -1,6 +1,6 @@
 # Privacy Policy for CP Sync
 
-**Effective Date:** July 28, 2026
+**Effective Date:** November 26, 2026
 
 This Privacy Policy describes how the "CP Sync" browser extension ("the Extension") handles your data. CP Sync is designed with strict privacy principles: **CP Sync does not collect or transmit your data to servers operated by the developer. Data is processed locally in your browser and, when you use the synchronization feature, submitted directly to the GitHub API to create commits in your configured repository.**
 
@@ -36,7 +36,7 @@ The Extension requests the following browser permissions for these specific reas
 
 *   `storage` / `unlimitedStorage`: To securely save your configuration settings, GitHub token, and push history locally.
 *   `host_permissions` (e.g., `*://*.codeforces.com/*`, `*://api.github.com/*`): To read your submission status on supported coding platforms and transmit the code directly to the GitHub API.
-*   `activeTab` / `scripting`: To support the "Autofill" feature in the Manual Push tab, allowing the Extension to securely read problem metadata from the currently active tab.
+*   `activeTab` / `scripting`: To support the one-shot **Scan Page & Push** and **Fill Fields Only** features in the **Scan & Push** and **Pending** tabs, allowing the Extension on explicit user click to scan the currently active tab (across editor frames) for problem metadata, language, and your solution code.
 *   `notifications`: To provide brief, non-intrusive status alerts when a background code push succeeds or fails.
 
 **Chrome Web Store Limited Use Disclosure:** CP Sync's use of information obtained through browser permissions is limited to providing and improving the Extension's single purpose. User data is not sold, used for advertising, or transferred to third parties except where necessary to provide the Extension's functionality, such as sending the user's selected submission to the GitHub API at the user's direction.
@@ -47,4 +47,4 @@ We may update this Privacy Policy from time to time if the Extension's features 
 
 ### 7. Contact
 
-If you have any questions or concerns about this Privacy Policy or how CP Sync handles your data, please contact the developer by opening an issue on the [CP Sync GitHub Repository](https://github.com/nafiuw/CP-Sync).
+If you have any questions or concerns about this Privacy Policy or how CP Sync handles your data, please contact the developer by opening an issue on the [CP Sync GitHub Repository](https://github.com/Buddhadeb-ss/CP-Sync).
