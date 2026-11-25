@@ -70,16 +70,17 @@ input:checked + .slider::before { transform: translateX(18px); }
 .stat-value { display: block; font-size: 19px; font-weight: 700; color: #3fb950; letter-spacing: -0.3px; }
 .stat-label { display: block; font-size: 10px; color: #8b949e; margin-top: 3px; }
 
-.tabs { display: flex; gap: 4px; border-bottom: 1px solid #21262d; margin-bottom: 14px; }
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid #21262d; margin-bottom: 14px; }
 .tab-btn {
   flex: 1;
   background: none;
   border: none;
   color: #8b949e;
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 600;
   padding: 8px 4px;
   cursor: pointer;
+  white-space: nowrap;
   border-bottom: 2px solid transparent;
   transition: color 0.15s, border-color 0.15s;
 }
@@ -277,4 +278,191 @@ footer code { background: #161b22; padding: 1px 4px; border-radius: 4px; }
   color: #3fb950;
   border: 1px solid rgba(35, 134, 54, 0.4);
 }
+.pending-status-msg.info {
+  display: block;
+  background: rgba(88, 166, 255, 0.12);
+  color: #79c0ff;
+  border: 1px solid rgba(88, 166, 255, 0.35);
+}
+
+.pending-header-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.scan-hero {
+  background: linear-gradient(135deg, rgba(35, 134, 54, 0.16), rgba(31, 111, 235, 0.10));
+  border: 1px solid rgba(63, 185, 80, 0.45);
+  border-radius: 10px;
+  padding: 12px 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.scan-hero-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #e6edf3;
+}
+.scan-btn {
+  width: 100%;
+  background: #238636;
+  border-color: rgba(240, 246, 252, 0.14);
+  font-size: 13px;
+  padding: 10px 12px;
+}
+.scan-btn:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.scan-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  color: #6e7681;
+  font-size: 11px;
+  margin: 10px 0 12px;
+}
+.scan-divider::before,
+.scan-divider::after {
+  content: "";
+  flex: 1;
+  border-bottom: 1px solid #21262d;
+}
+.scan-divider span {
+  padding: 0 10px;
+}
+
+.pending-card.highlight {
+  border-color: #3fb950;
+  box-shadow: 0 0 0 1px rgba(63, 185, 80, 0.35);
+}
+.pending-card-badge.scanned {
+  background: #1f6feb;
+}
+.pending-card-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.pending-card-actions button.pending-edit-btn {
+  flex: 0.65;
+}
+
+.input-with-btn {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+.input-with-btn input {
+  flex: 1;
+}
+
+.scan-hero-top {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.active-tab-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: rgba(13, 17, 23, 0.75);
+  border: 1px solid #30363d;
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-size: 11px;
+  color: #8b949e;
+}
+.active-tab-chip.ready {
+  border-color: rgba(63, 185, 80, 0.45);
+  color: #7ee787;
+}
+
+.pending-lang-select {
+  width: 100%;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 5px;
+  color: #e6edf3;
+  padding: 3px 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.pending-code-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+.code-toggle-btn {
+  flex: none;
+  background: transparent;
+  border: none;
+  color: #58a6ff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 0;
+  cursor: pointer;
+}
+.code-toggle-btn:hover { text-decoration: underline; filter: none; }
+.pending-code-preview.expanded {
+  max-height: 260px;
+}
+
+.push-success-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 7px;
+  background: rgba(35, 134, 54, 0.16);
+  border: 1px solid rgba(63, 185, 80, 0.45);
+  font-size: 12px;
+  color: #7ee787;
+}
+.push-success-banner a {
+  color: #58a6ff;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.push-success-banner a:hover { text-decoration: underline; }
+.push-banner-close {
+  flex: none;
+  background: transparent;
+  border: none;
+  color: #8b949e;
+  font-size: 14px;
+  padding: 0 4px;
+  cursor: pointer;
+}
+
+.history-item-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 4px;
+  gap: 8px;
+}
+.history-item-link {
+  color: #58a6ff;
+  font-size: 11px;
+  text-decoration: none;
+  font-weight: 600;
+}
+.history-item-link:hover { text-decoration: underline; }
+
+
 

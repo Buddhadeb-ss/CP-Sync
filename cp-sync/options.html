@@ -38,8 +38,8 @@
 
     <nav class="tabs">
       <button class="tab-btn" data-tab="pending" id="pendingTabBtn">Pending <span id="pendingBadge" class="tab-badge" style="display:none">0</span></button>
-      <button class="tab-btn active" data-tab="general">General</button>
-      <button class="tab-btn" data-tab="manual">Manual Push</button>
+      <button class="tab-btn" data-tab="manual">Scan &amp; Push</button>
+      <button class="tab-btn active" data-tab="general">Settings</button>
       <button class="tab-btn" data-tab="history">History</button>
       <button class="tab-btn" data-tab="advanced">Advanced</button>
     </nav>
@@ -47,10 +47,13 @@
     <!-- PENDING CONFIRMATIONS TAB -->
     <section class="tab-panel" id="tab-pending">
       <div class="pending-header-bar">
-        <p class="hint" style="margin-top:0; margin-bottom:10px">
-          Accepted solutions awaiting your explicit confirmation before pushing to GitHub. Opening pages or refreshing never pushes.
+        <p class="hint" style="margin:0; flex:1">
+          Accepted solutions awaiting your confirmation before committing.
         </p>
+        <button id="scanFromPendingBtn" type="button" class="secondary small" title="Scan the open judge tab once for an accepted problem">Scan Tab</button>
       </div>
+      <div id="lastPushBanner" class="push-success-banner" style="display:none"></div>
+      <p id="pendingScanStatus" class="status" style="margin-top:6px; margin-bottom:4px"></p>
       <div id="pendingList" class="pending-list">
         <p class="hint">No pending submissions awaiting confirmation.</p>
       </div>
@@ -59,7 +62,10 @@
     <!-- GENERAL TAB -->
     <section class="tab-panel active" id="tab-general">
       <label for="token">GitHub Personal Access Token</label>
-      <input type="password" id="token" placeholder="github_pat_xxxxxxxxxxxxxxxxxxxxxxxx" />
+      <div class="input-with-btn">
+        <input type="password" id="token" placeholder="github_pat_xxxxxxxxxxxxxxxxxxxxxxxx" />
+        <button id="toggleTokenBtn" type="button" class="secondary small" title="Show or hide token">Show</button>
+      </div>
       <p class="hint">
         Needs Contents: Read and write on the target repo.
         <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener">Create one here.</a>
@@ -102,17 +108,25 @@
 
     <!-- MANUAL PUSH TAB -->
     <section class="tab-panel" id="tab-manual">
-      <p class="hint" style="margin-top:0">
-        Use this when auto-detection misses a submission, or to push from a judge that isn't built in yet.
-      </p>
+      <div class="scan-hero">
+        <div class="scan-hero-top">
+          <div class="scan-hero-title">Have an Accepted problem in front of you?</div>
+          <span id="activeTabChip" class="active-tab-chip">Checking tab...</span>
+        </div>
+        <p class="hint" style="margin:0">
+          Scan the active tab once to scrape the problem, language, and source code, then show push confirmation.
+        </p>
+        <button id="scanAndPushBtn" type="button" class="scan-btn">Scan Page &amp; Push</button>
+      </div>
 
-      <div class="actions small-actions" style="margin-top:0; margin-bottom:14px">
-        <button id="autofillBtn" type="button" class="secondary small">Autofill</button>
+      <p id="scanStatus" class="status" style="margin-top:8px; margin-bottom:6px"></p>
+
+      <div class="scan-divider"><span>or fill &amp; edit manually</span></div>
+
+      <div class="actions small-actions" style="margin-top:0; margin-bottom:10px">
+        <button id="autofillBtn" type="button" class="secondary small" title="Scrape the active tab into the fields below without opening push confirmation yet">Fill Fields Only</button>
         <button id="clearAllBtn" type="button" class="secondary small">Clear All</button>
       </div>
-      <p class="hint" style="margin-top:-6px; margin-bottom:14px">
-        Autofill reads the problem name, link, ID, and rating/difficulty off whichever judge page is open in your active tab - just paste your code after.
-      </p>
 
       <div class="row">
         <div>
