@@ -115,6 +115,41 @@
       .trim();
   }
 
+  function detectCodeChefDomLang() {
+    const sels = [
+      'select[name*="lang" i]', 'select[id*="lang" i]',
+      '[data-cy*="language" i]', '[data-testid*="language" i]',
+      '[class*="languageSelect" i]', '[class*="lang-select" i]',
+      '[role="combobox"]', '[aria-haspopup="listbox"]',
+      '[class*="language" i]:not(pre):not(code)'
+    ];
+    const langRe = /^(?:language\s*[:\-]\s*)?(?:c(?:\s*\([^)]+\)|\s*\d{2})?|c\+\+(?:\s*\d{2}|\s*\([^)]+\))?|gnu\s*g\+\+.*|gnu\s*c\+\+.*|gnu\s*c.*|g\+\+.*|gcc.*|clang.*|python(?:\s*3)?(?:\s*\([^)]+\))?|pypy.*|pyth.*|java(?:\s*\d+)?(?:\s*\([^)]+\))?|javascript(?:\s*\([^)]+\))?|node\.js.*|typescript(?:\s*\([^)]+\))?|go(?:lang)?(?:\s*\([^)]+\))?|rust(?:\s*\([^)]+\))?|kotlin(?:\s*\([^)]+\))?|c#(?:\s*\([^)]+\))?|ruby.*|swift.*|scala.*|php.*|haskell.*|dart.*|racket.*|pascal.*)$/i;
+    for (const s of sels) {
+      const els = Array.from(document.querySelectorAll(s));
+      for (const el of els) {
+        if (isInsideAiTutor(el)) continue;
+        const v = (el.tagName === "SELECT" && el.selectedIndex >= 0 ? (el.options[el.selectedIndex].text || el.value) : el.textContent || "").trim();
+        if (v && v.length <= 35 && langRe.test(v)) return v.replace(/^language\s*[:\-]\s*/i, "").trim();
+      }
+    }
+    return null;
+  }
+
+  function refineCodeChefLanguage(lang, code) {
+    const domLang = detectCodeChefDomLang();
+    if (domLang) return domLang;
+    if ((!lang || /^(?:c\+\+|cpp)$/i.test(String(lang).trim())) && code) {
+      const hasCpp =
+        /#include\s*<(?:iostream|bits\/stdc\+\+\.h|vector|string|algorithm|map|unordered_map|set|unordered_set|queue|stack|deque|cstdio|cstdlib|cstring|sstream)\b/.test(code) ||
+        /\busing\s+namespace\s+std\b|\bstd::|\b(?:cout|cin)\s*(?:<<|>>)|\bclass\s+\w+\s*\{|\bvector\s*</.test(code);
+      const hasC =
+        /#include\s*<(?:stdio\.h|stdlib\.h|string\.h|stdbool\.h|math\.h|limits\.h|stdint\.h|ctype\.h)>/.test(code) ||
+        /\b(?:printf|scanf|malloc|calloc|realloc|free|fgets|puts)\s*\(|\btypedef\s+struct\b/.test(code);
+      if (!hasCpp && hasC) return "C";
+    }
+    return lang || "";
+  }
+
   // -------------------------------------------------------------------------
   // Submission Initiation Detection (Multi-Trigger)
   // -------------------------------------------------------------------------
@@ -182,10 +217,7 @@
       }
     }
 
-    if (!capturedLang) {
-      const langEl = document.querySelector('[class*="language"]');
-      capturedLang = langEl ? langEl.textContent.trim() : "";
-    }
+    capturedLang = refineCodeChefLanguage(capturedLang, capturedCode);
 
     const sub = {
       initiatedAt: Date.now(),
@@ -361,11 +393,13 @@
       return;
     }
 
+    const finalLanguage = refineCodeChefLanguage(sub.language, code) || "unknown";
+
     const payload = {
       platform: "codechef",
       problemName: sub.problemTitle || sub.problemCode,
       problemId: sub.problemCode,
-      language: sub.language || "unknown",
+      language: finalLanguage,
       code: code,
       url: sub.problemUrl || location.href,
       submissionId: submissionId,

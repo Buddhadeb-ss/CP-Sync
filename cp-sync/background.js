@@ -20,13 +20,14 @@ const EXT_MAP = {
   "javascript": "js", "typescript": "ts", "golang": "go", "rust": "rs", "kotlin": "kt",
   "csharp": "cs", "ruby": "rb", "swift": "swift", "scala": "scala", "php": "php",
   "racket": "rkt", "erlang": "erl", "elixir": "ex", "dart": "dart", "mysql": "sql",
+  "pascal": "pas", "ocaml": "ml", "clojure": "clj",
   "typescript3": "ts", "golang1": "go",
   // Display-name style strings (Codeforces/AtCoder/CodeChef/etc.) - used
   // as a substring fallback if no exact match above was found.
-  "c++": "cpp", "gnu c++": "cpp", "c++17": "cpp", "c++20": "cpp", "c++14": "cpp", "c++11": "cpp",
-  "gnu c": "c",
-  "java 8": "java", "java 11": "java", "java 17": "java",
-  "python 3": "py", "pypy": "py", "pypy 3": "py",
+  "c++": "cpp", "gnu c++": "cpp", "g++": "cpp", "c++17": "cpp", "c++20": "cpp", "c++14": "cpp", "c++11": "cpp", "c++23": "cpp",
+  "gnu c": "c", "gnu c11": "c", "gnu c17": "c", "clang c": "c", "c99": "c", "c11": "c", "c17": "c", "c23": "c",
+  "java 8": "java", "java 11": "java", "java 17": "java", "java 21": "java",
+  "python 3": "py", "pypy": "py", "pypy 3": "py", "pyth 3": "py",
   "node.js": "js",
   "go ": "go",
   "c#": "cs", "mono c#": "cs",
@@ -48,6 +49,11 @@ function guessExtension(languageRaw) {
   // "c++17" always wins over a shorter one like "c" for the same string.
   const keys = Object.keys(EXT_MAP).sort((a, b) => b.length - a.length);
   for (const key of keys) {
+    if (key === "c") {
+      // Only match standalone "c" (or C99/C11/C17/C (gcc)), never inside words like "pascal" or "clojure"
+      if (/(?:^|[^a-z])c(?:\d{2}|[^a-z+#]|$)/.test(lang)) return "c";
+      continue;
+    }
     if (lang.includes(key)) return EXT_MAP[key];
   }
   return null;
@@ -58,8 +64,14 @@ function guessExtension(languageRaw) {
 // than silently defaulting to .txt.
 function guessExtensionFromCode(code) {
   if (!code) return "txt";
-  if (/#include\s*<.*bits\/stdc\+\+|#include\s*<iostream>|std::|cout\s*<<|cin\s*>>/.test(code)) return "cpp";
-  if (/#include\s*<stdio\.h>|printf\s*\(|scanf\s*\(/.test(code)) return "c";
+  const hasCpp =
+    /#include\s*<(?:iostream|bits\/stdc\+\+\.h|vector|string|algorithm|map|unordered_map|set|unordered_set|queue|stack|deque|utility|tuple|cstdio|cstdlib|cstring|iomanip|sstream|fstream|numeric|functional|memory|array|bitset|list)\b/.test(code) ||
+    /\busing\s+namespace\s+std\b|\bstd::|\b(?:cout|cin|cerr)\s*(?:<<|>>)|\bclass\s+\w+\s*\{|\btemplate\s*<|\bnullptr\b|\bvector\s*</.test(code);
+  if (hasCpp) return "cpp";
+  const hasC =
+    /#include\s*<(?:stdio\.h|stdlib\.h|string\.h|stdbool\.h|math\.h|limits\.h|stdint\.h|ctype\.h|assert\.h|time\.h|float\.h)>/.test(code) ||
+    /\b(?:printf|scanf|fprintf|fscanf|sprintf|sscanf|fgets|fputs|puts|getchar|putchar|malloc|calloc|realloc|free)\s*\(|\btypedef\s+struct\b|\*\s*returnSize\b/.test(code);
+  if (hasC) return "c";
   if (/^\s*def\s+\w+\s*\(|^\s*import\s+\w+|print\s*\(.*\)/m.test(code)) return "py";
   if (/public\s+class\s+\w+|System\.out\.println/.test(code)) return "java";
   if (/fn\s+main\s*\(\)|println!\s*\(/.test(code)) return "rs";

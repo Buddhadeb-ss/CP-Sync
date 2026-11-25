@@ -46,27 +46,29 @@ function cpSyncAlreadyHandled(uniqueId) {
 
 // File-extension lookup used when building the GitHub file path.
 const CP_SYNC_EXT_MAP = {
-  "c++": "cpp", "gnu c++": "cpp", "c++17": "cpp", "c++20": "cpp", "c++14": "cpp", "c++11": "cpp",
-  "c": "c", "gnu c": "c",
-  "java": "java", "java 8": "java", "java 11": "java", "java 17": "java",
-  "python": "py", "python 3": "py", "python3": "py", "pypy": "py", "pypy 3": "py",
-  "javascript": "js", "node.js": "js",
-  "typescript": "ts",
-  "go": "go", "golang": "go",
-  "rust": "rs",
-  "kotlin": "kt",
-  "c#": "cs", "mono c#": "cs",
-  "ruby": "rb",
-  "swift": "swift",
-  "scala": "scala",
-  "php": "php",
-  "haskell": "hs"
+  "cpp": "cpp", "c": "c", "java": "java", "python": "py", "python3": "py",
+  "javascript": "js", "typescript": "ts", "golang": "go", "rust": "rs", "kotlin": "kt",
+  "csharp": "cs", "ruby": "rb", "swift": "swift", "scala": "scala", "php": "php",
+  "haskell": "hs", "pascal": "pas", "dart": "dart",
+  "c++": "cpp", "gnu c++": "cpp", "g++": "cpp", "c++17": "cpp", "c++20": "cpp", "c++14": "cpp", "c++11": "cpp",
+  "gnu c": "c", "gnu c11": "c", "gnu c17": "c", "clang c": "c", "c99": "c", "c11": "c", "c17": "c",
+  "java 8": "java", "java 11": "java", "java 17": "java",
+  "python 3": "py", "pypy": "py", "pypy 3": "py", "pyth 3": "py",
+  "node.js": "js",
+  "go ": "go",
+  "c#": "cs", "mono c#": "cs"
 };
 
 function cpSyncGuessExtension(languageRaw) {
   if (!languageRaw) return "txt";
-  const lang = languageRaw.toLowerCase();
-  for (const key of Object.keys(CP_SYNC_EXT_MAP)) {
+  const lang = languageRaw.toLowerCase().trim();
+  if (CP_SYNC_EXT_MAP[lang]) return CP_SYNC_EXT_MAP[lang];
+  const keys = Object.keys(CP_SYNC_EXT_MAP).sort((a, b) => b.length - a.length);
+  for (const key of keys) {
+    if (key === "c") {
+      if (/(?:^|[^a-z])c(?:\d{2}|[^a-z+#]|$)/.test(lang)) return "c";
+      continue;
+    }
     if (lang.includes(key)) return CP_SYNC_EXT_MAP[key];
   }
   return "txt";
