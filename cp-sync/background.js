@@ -295,6 +295,8 @@ function buildPath(payload) {
     groupFolder = sanitize(payload.contest || "Contests");
   } else if (platform === "neetcode") {
     groupFolder = sanitize(payload.rating || "Uncategorized");
+  } else if (payload.contest || payload.rating) {
+    groupFolder = sanitize(payload.contest || payload.rating);
   }
 
   const fileName = `${sanitize(payload.problemId || payload.problemName)}.${ext}`;
@@ -310,6 +312,20 @@ function buildCommitMessage(template, payload) {
     .replace(/\{language\}/g, payload.language || "");
 }
 
+function formatPlatformLabel(platform) {
+  const map = {
+    codechef: "CodeChef",
+    codeforces: "Codeforces",
+    leetcode: "LeetCode",
+    neetcode: "NeetCode",
+    hackerrank: "HackerRank",
+    vjudge: "vJudge",
+    atcoder: "AtCoder"
+  };
+  const raw = (platform || "Unknown").trim();
+  return map[raw.toLowerCase()] || raw;
+}
+
 function buildFileHeader(payload) {
   const ext = guessExtension(payload.language) || guessExtensionFromCode(payload.code);
   const isHashComment = ["py", "rb", "sh", "bash", "pl", "r"].includes(ext);
@@ -319,7 +335,7 @@ function buildFileHeader(payload) {
   const lines = [
     `${pfx}Problem: ${payload.problemName || payload.problemId || ""}`,
     payload.problemId ? `${pfx}Problem Code: ${payload.problemId}` : null,
-    `${pfx}Platform: CodeChef`,
+    `${pfx}Platform: ${formatPlatformLabel(payload.platform)}`,
     payload.contest ? `${pfx}Contest: ${payload.contest}` : null,
     payload.rating ? `${pfx}Difficulty / Rating: ${payload.rating}` : null,
     `${pfx}Language: ${payload.language || ext || "unknown"}`,
@@ -389,7 +405,7 @@ async function githubRequest(url, options, attempt = 1) {
   return resp;
 }
 
-async function pushToGithub(payload, { isRetry = false, sha: explicitSha = null } = {}) {
+async function pushToGithub(payload, { isRetry = false, sha: explicitSha = null, force = false } = {}) {
   const settings = await getSettings();
   const { githubToken, githubOwner, githubRepo, githubBranch, commitMessageTemplate, skipDuplicateCode } = settings;
 
@@ -414,7 +430,7 @@ async function pushToGithub(payload, { isRetry = false, sha: explicitSha = null 
   const content = buildFileHeader(payload) + (payload.code || "// (no source captured)");
   const codeHash = await sha256Hex(payload.code || "");
 
-  if (skipDuplicateCode) {
+  if (skipDuplicateCode && !force) {
     const dedupeMap = await getLocal(DEDUPE_KEY, {});
     if (dedupeMap[path] === codeHash) {
       await addHistoryEntry({ platform: payload.platform, problemName: payload.problemName, path, status: "skipped", detail: "identical code already pushed" });
@@ -458,11 +474,13 @@ async function pushToGithub(payload, { isRetry = false, sha: explicitSha = null 
       dedupeMap[path] = codeHash;
       await setLocal(DEDUPE_KEY, dedupeMap);
 
-      await addHistoryEntry({ platform: payload.platform, problemName: payload.problemName, path, status: "success", url: payload.url });
+      const encodedPath = path.split("/").map(encodeURIComponent).join("/");
+      const htmlUrl = `https://github.com/${githubOwner}/${githubRepo}/blob/${encodeURIComponent(githubBranch)}/${encodedPath}`;
+      await addHistoryEntry({ platform: payload.platform, problemName: payload.problemName, path, status: "success", url: payload.url, htmlUrl });
       await updateStats(payload.platform);
 
       notify("Pushed to GitHub", `${payload.problemName || payload.problemId} -> ${path}`);
-      return { ok: true, path };
+      return { ok: true, path, htmlUrl };
     }
 
     const errBody = await putResp.text();
@@ -477,41 +495,58 @@ async function pushToGithub(payload, { isRetry = false, sha: explicitSha = null 
 }
 
 async function registerPendingItem(payload, sender) {
-  if (!payload || (payload.verdict || "").toLowerCase() !== "accepted") {
+  const verdictNorm = (payload && payload.verdict ? String(payload.verdict) : "").trim().toLowerCase();
+  const isAcceptedVerdict =
+    verdictNorm === "accepted" ||
+    verdictNorm === "ac" ||
+    verdictNorm === "pretests passed" ||
+    verdictNorm === "solved";
+
+  if (!payload || !isAcceptedVerdict) {
     return { ok: false, error: "Verdict is not Accepted" };
   }
   if (!payload.code || typeof payload.code !== "string" || !payload.code.trim()) {
     return { ok: false, error: "Source code was not captured" };
   }
 
+  const manualScan = Boolean(payload.manualScan);
   const settings = await getSettings();
-  if (settings.extensionEnabled === false) {
+  if (!manualScan && settings.extensionEnabled === false) {
     return { ok: false, error: "extension_disabled", skipped: true };
   }
 
-  const isKnownPlatform = KNOWN_PLATFORMS.includes((payload.platform || "").toLowerCase());
-  if (isKnownPlatform && settings.platformsEnabled && settings.platformsEnabled[payload.platform] === false) {
-    return { ok: false, error: "platform_disabled", skipped: true };
-  }
-  if (!isKnownPlatform && settings.otherJudgesEnabled === false) {
-    return { ok: false, error: "other_judges_disabled", skipped: true };
+  const platLower = (payload.platform || "").toLowerCase();
+  const isKnownPlatform = KNOWN_PLATFORMS.includes(platLower);
+  if (!manualScan) {
+    if (isKnownPlatform && settings.platformsEnabled && settings.platformsEnabled[platLower] === false) {
+      return { ok: false, error: "platform_disabled", skipped: true };
+    }
+    if (!isKnownPlatform && settings.otherJudgesEnabled === false) {
+      return { ok: false, error: "other_judges_disabled", skipped: true };
+    }
   }
 
   const path = buildPath(payload);
   const codeHash = await sha256Hex(payload.code || "");
 
-  // Check canceled list
-  const canceledList = await getCanceledList();
-  const subKey = payload.submissionId ? "sub_" + payload.submissionId : "hash_" + codeHash;
-  if (canceledList.includes(subKey)) {
-    return { ok: false, skipped: true, error: "This submission was previously canceled by user." };
+  // Check canceled list (explicit manual scans bypass past cancellations)
+  if (!manualScan) {
+    const canceledList = await getCanceledList();
+    const subKey = payload.submissionId ? "sub_" + payload.submissionId : "hash_" + codeHash;
+    if (canceledList.includes(subKey)) {
+      return { ok: false, skipped: true, error: "This submission was previously canceled by user." };
+    }
   }
 
   // Check if identical code was already pushed
+  let alreadyPushed = false;
   if (settings.skipDuplicateCode) {
     const dedupeMap = await getLocal(DEDUPE_KEY, {});
     if (dedupeMap[path] === codeHash) {
-      return { ok: false, skipped: true, error: "This exact code is already pushed to GitHub." };
+      if (!manualScan) {
+        return { ok: false, skipped: true, error: "This exact code is already pushed to GitHub." };
+      }
+      alreadyPushed = true;
     }
   }
 
@@ -530,12 +565,17 @@ async function registerPendingItem(payload, sender) {
     platform: payload.platform || "codechef",
     problemName: payload.problemName || payload.problemId || "problem",
     problemId: payload.problemId || "problem",
+    rating: payload.rating || null,
+    contest: payload.contest || null,
     language: payload.language || "unknown",
     code: payload.code,
     url: payload.url || "",
     submissionId: payload.submissionId || null,
     submissionUrl: payload.submissionUrl || null,
-    verdict: "Accepted",
+    verdict: payload.verdict || "Accepted",
+    detectedAccepted: payload.detectedAccepted !== false,
+    manualScan: manualScan,
+    alreadyPushed: alreadyPushed,
     targetOwner: settings.githubOwner || "Buddhadeb-ss",
     targetRepo: settings.githubRepo || "coding-practice",
     targetBranch: settings.githubBranch || "main",
@@ -548,11 +588,13 @@ async function registerPendingItem(payload, sender) {
   await setPendingMap(pendingMap);
   await updateBadge();
 
-  notify("CP Sync: Solution Accepted", `${pendingItem.problemName} is ready to push. Review and confirm.`);
+  if (!manualScan) {
+    notify("CP Sync: Solution Accepted", `${pendingItem.problemName} is ready to push. Review and confirm.`);
+  }
   return { ok: true, pendingItem };
 }
 
-async function confirmAndPush(pendingId, overwrite = false) {
+async function confirmAndPush(pendingId, overwrite = false, force = false) {
   const pendingMap = await getPendingMap();
   const pendingItem = pendingMap[pendingId];
   if (!pendingItem || pendingItem.status !== "pending_confirmation") {
@@ -561,6 +603,10 @@ async function confirmAndPush(pendingId, overwrite = false) {
 
   const settings = await getSettings();
   const { githubToken, githubOwner, githubRepo, githubBranch } = settings;
+  if (!githubToken || !githubOwner || !githubRepo) {
+    return { ok: false, error: "GitHub token, owner, or repo is not configured in General settings." };
+  }
+
   const path = pendingItem.proposedPath;
   const apiBase = `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${path}`;
   const headers = {
@@ -599,12 +645,12 @@ async function confirmAndPush(pendingId, overwrite = false) {
       }
     }
 
-    const pushResult = await pushToGithub(pendingItem, { sha: sha });
+    const pushResult = await pushToGithub(pendingItem, { sha: sha, force: force || overwrite || Boolean(pendingItem.alreadyPushed) });
     if (pushResult && pushResult.ok) {
       delete pendingMap[pendingId];
       await setPendingMap(pendingMap);
       await updateBadge();
-      return { ok: true, path: path };
+      return { ok: true, path: path, htmlUrl: pushResult.htmlUrl || null, skipped: Boolean(pushResult.skipped) };
     } else {
       return { ok: false, error: pushResult ? pushResult.error : "Unknown push error" };
     }
@@ -618,11 +664,13 @@ async function cancelPendingItem(pendingId) {
   const pendingMap = await getPendingMap();
   const pendingItem = pendingMap[pendingId];
   if (pendingItem) {
-    if (pendingItem.submissionId) {
-      await addCanceled("sub_" + pendingItem.submissionId);
+    if (!pendingItem.manualScan) {
+      if (pendingItem.submissionId) {
+        await addCanceled("sub_" + pendingItem.submissionId);
+      }
+      const codeHash = await sha256Hex(pendingItem.code || "");
+      await addCanceled("hash_" + codeHash);
     }
-    const codeHash = await sha256Hex(pendingItem.code || "");
-    await addCanceled("hash_" + codeHash);
     delete pendingMap[pendingId];
     await setPendingMap(pendingMap);
 
@@ -640,6 +688,35 @@ async function cancelPendingItem(pendingId) {
     await updateBadge();
   }
   return { ok: true };
+}
+
+async function updatePendingLanguage(pendingId, language) {
+  const pendingMap = await getPendingMap();
+  const pendingItem = pendingMap[pendingId];
+  if (!pendingItem) {
+    return { ok: false, error: "Pending item not found." };
+  }
+  const cleanLang = (language || "").trim();
+  if (!cleanLang) {
+    return { ok: false, error: "Language cannot be empty." };
+  }
+  pendingItem.language = cleanLang;
+  pendingItem.proposedPath = buildPath(pendingItem);
+
+  const settings = await getSettings();
+  let alreadyPushed = false;
+  if (settings.skipDuplicateCode) {
+    const codeHash = await sha256Hex(pendingItem.code || "");
+    const dedupeMap = await getLocal(DEDUPE_KEY, {});
+    if (dedupeMap[pendingItem.proposedPath] === codeHash) {
+      alreadyPushed = true;
+    }
+  }
+  pendingItem.alreadyPushed = alreadyPushed;
+
+  pendingMap[pendingId] = pendingItem;
+  await setPendingMap(pendingMap);
+  return { ok: true, pendingItem };
 }
 
 async function retryFailedQueue() {
@@ -692,11 +769,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
 
     case "CP_SYNC_CONFIRM_PUSH":
-      confirmAndPush(message.pendingId, message.overwrite).then(sendResponse);
+      confirmAndPush(message.pendingId, message.overwrite, message.force).then(sendResponse);
       return true;
 
     case "CP_SYNC_CANCEL_PENDING":
       cancelPendingItem(message.pendingId).then(sendResponse);
+      return true;
+
+    case "CP_SYNC_UPDATE_PENDING_LANGUAGE":
+      updatePendingLanguage(message.pendingId, message.language).then(sendResponse);
       return true;
 
     case "CP_SYNC_GET_PENDING_ITEMS":
